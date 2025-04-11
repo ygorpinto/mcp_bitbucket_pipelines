@@ -65,7 +65,7 @@ export const mcp_bitbucket_list_pipelines = {
     const client = axios.create({
       baseURL: process.env.BITBUCKET_API_URL || 'https://api.bitbucket.org/2.0',
       headers: {
-        'Authorization': `Bearer ${process.env.BITBUCKET_TOKEN}`
+        'Authorization': `Bearer ${process.env.BITBUCKET_ACCESS_TOKEN}`
       }
     });
 
@@ -115,7 +115,7 @@ export const mcp_bitbucket_trigger_pipeline = {
     const client = axios.create({
       baseURL: process.env.BITBUCKET_API_URL || 'https://api.bitbucket.org/2.0',
       headers: {
-        'Authorization': `Bearer ${process.env.BITBUCKET_TOKEN}`
+        'Authorization': `Bearer ${process.env.BITBUCKET_ACCESS_TOKEN}`
       }
     });
 
@@ -148,7 +148,7 @@ export const mcp_bitbucket_get_pipeline_status = {
     const client = axios.create({
       baseURL: process.env.BITBUCKET_API_URL || 'https://api.bitbucket.org/2.0',
       headers: {
-        'Authorization': `Bearer ${process.env.BITBUCKET_TOKEN}`
+        'Authorization': `Bearer ${process.env.BITBUCKET_ACCESS_TOKEN}`
       }
     });
 
@@ -177,7 +177,7 @@ export const mcp_bitbucket_stop_pipeline = {
     const client = axios.create({
       baseURL: process.env.BITBUCKET_API_URL || 'https://api.bitbucket.org/2.0',
       headers: {
-        'Authorization': `Bearer ${process.env.BITBUCKET_TOKEN}`
+        'Authorization': `Bearer ${process.env.BITBUCKET_ACCESS_TOKEN}`
       }
     });
 

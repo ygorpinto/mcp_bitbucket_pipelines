@@ -34,10 +34,10 @@ type MCPRequest = {
 
 // Validate environment variables
 const envSchema = z.object({
-  BITBUCKET_TOKEN: z.string(),
+  BITBUCKET_ACCESS_TOKEN: z.string(),
   BITBUCKET_WORKSPACE: z.string(),
   BITBUCKET_REPO_SLUG: z.string(),
-  PORT: z.string().default('3000'),
+  PORT: z.string().default('3444'),
   BITBUCKET_API_URL: z.string().default('https://api.bitbucket.org/2.0')
 });
 
@@ -187,40 +187,49 @@ export class BitbucketServer {
       }
     });
 
-    // Register MCP Tools
-    const tools: MCPTools = {
-      mcp_bitbucket_list_pipelines,
-      mcp_bitbucket_trigger_pipeline,
-      mcp_bitbucket_get_pipeline_status,
-      mcp_bitbucket_stop_pipeline
-    };
-
-    app.post('/mcp', async (req, res) => {
-      const { tool, params }: MCPRequest = req.body;
-
-      if (!tool || !tools[tool]) {
-        return res.status(400).json({ error: `Tool '${tool}' not found` });
-      }
-
-      try {
-        const result = await tools[tool].handler(params || {});
-        res.json(result);
-      } catch (error: any) {
-        console.error(`Error executing tool ${tool}:`, error);
-        res.status(500).json({ 
-          error: error.message,
-          details: error.response?.data
-        });
-      }
-    });
-
     // Health check endpoint
     app.get('/health', (_, res) => res.json({ status: 'ok' }));
   }
 }
 
+// Health check endpoint
+app.get('/', (_, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Register MCP Tools
+const tools: MCPTools = {
+  mcp_bitbucket_list_pipelines,
+  mcp_bitbucket_trigger_pipeline,
+  mcp_bitbucket_get_pipeline_status,
+  mcp_bitbucket_stop_pipeline
+};
+
+app.post('/mcp', async (req, res) => {
+  const { tool, params }: MCPRequest = req.body;
+
+  if (!tool || !tools[tool]) {
+    return res.status(400).json({ error: `Tool '${tool}' not found` });
+  }
+
+  try {
+    const result = await tools[tool].handler(params || {});
+    res.json(result);
+  } catch (error: any) {
+    console.error(`Error executing tool ${tool}:`, error);
+    res.status(500).json({ 
+      error: error.message,
+      details: error.response?.data
+    });
+  }
+});
+
 // Start server
 const port = parseInt(env.PORT);
 app.listen(port, () => {
   console.log(`MCP Server running on port ${port}`);
+  console.log(`Health check available at http://localhost:${port}/health`);
 }); 

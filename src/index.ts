@@ -3,26 +3,93 @@ import { z } from 'zod';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import cors from 'cors';
-import { BitbucketServer } from './server';
-import { Config } from './types';
+import { 
+  mcp_bitbucket_list_pipelines,
+  mcp_bitbucket_trigger_pipeline,
+  mcp_bitbucket_get_pipeline_status,
+  mcp_bitbucket_stop_pipeline
+} from './tools/bitbucket-pipelines';
 
-const app = express();
-const port = process.env.PORT || 3444;
+// Types for MCP
+type MCPTool = {
+  description: string;
+  parameters: {
+    type: string;
+    properties: Record<string, unknown>;
+    required?: string[];
+  };
+  handler: (params: any) => Promise<unknown>;
+};
 
-// Security and utility middleware
-app.use(helmet()); // Adds various HTTP headers for security
-app.use(morgan('combined')); // Request logging
-app.use(cors()); // Enable CORS
-app.use(express.json());
+type MCPTools = {
+  [key: string]: MCPTool;
+};
 
-// Root endpoint for health check
-app.get('/', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+type MCPRequest = {
+  tool: string;
+  params?: Record<string, unknown>;
+};
+
+// Validate environment variables
+const envSchema = z.object({
+  BITBUCKET_ACCESS_TOKEN: z.string(),
+  BITBUCKET_WORKSPACE: z.string(),
+  BITBUCKET_REPO_SLUG: z.string(),
+  PORT: z.string().default('3444'),
+  BITBUCKET_API_URL: z.string().default('https://api.bitbucket.org/2.0')
 });
 
-// Basic health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+const env = envSchema.parse(process.env);
+const port = parseInt(env.PORT);
+
+const app = express();
+
+// Middleware
+app.use(helmet());
+app.use(morgan('dev'));
+app.use(cors());
+app.use(express.json());
+
+// Health check endpoints
+app.get('/', (_, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.get('/health', (_, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Register MCP Tools
+const tools: MCPTools = {
+  mcp_bitbucket_list_pipelines,
+  mcp_bitbucket_trigger_pipeline,
+  mcp_bitbucket_get_pipeline_status,
+  mcp_bitbucket_stop_pipeline
+};
+
+app.post('/mcp', async (req, res) => {
+  const { tool, params }: MCPRequest = req.body;
+
+  if (!tool || !tools[tool]) {
+    return res.status(400).json({ error: `Tool '${tool}' not found` });
+  }
+
+  try {
+    const result = await tools[tool].handler(params || {});
+    res.json(result);
+  } catch (error: any) {
+    console.error(`Error executing tool ${tool}:`, error);
+    res.status(500).json({ 
+      error: error.message,
+      details: error.response?.data
+    });
+  }
 });
 
 // Error handling middleware
@@ -40,32 +107,6 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
   });
 });
 
-async function main() {
-  const config: Config = {
-    accessToken: process.env.BITBUCKET_ACCESS_TOKEN || '',
-    apiBaseUrl: process.env.BITBUCKET_API_URL || 'https://api.bitbucket.org/2.0',
-  };
-
-  if (!config.accessToken) {
-    throw new Error('BITBUCKET_ACCESS_TOKEN environment variable is required');
-  }
-
-  const server = new BitbucketServer(config);
-  
-  // Initialize Bitbucket server routes
-  server.initializeRoutes(app);
-
-  try {
-    app.listen(port, () => {
-      console.log(`Server is running on port ${port}`);
-      console.log(`Health check available at http://localhost:${port}/health`);
-    });
-  } catch (error) {
-    console.error('Failed to start server:', error);
-    process.exit(1);
-  }
-}
-
 // Handle uncaught exceptions and rejections
 process.on('uncaughtException', (error) => {
   console.error('Uncaught Exception:', error);
@@ -77,7 +118,8 @@ process.on('unhandledRejection', (reason, promise) => {
   process.exit(1);
 });
 
-main().catch(error => {
-  console.error('Unhandled error:', error);
-  process.exit(1);
+// Start server
+app.listen(port, () => {
+  console.log(`MCP Server running on port ${port}`);
+  console.log(`Health check available at http://localhost:${port}/health`);
 }); 
