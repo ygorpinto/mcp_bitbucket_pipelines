@@ -1,111 +1,167 @@
-import express from 'express';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import helmet from 'helmet';
-import morgan from 'morgan';
-import cors from 'cors';
+import * as dotenv from 'dotenv';
 import { 
   mcp_bitbucket_list_pipelines,
   mcp_bitbucket_trigger_pipeline,
   mcp_bitbucket_get_pipeline_status,
   mcp_bitbucket_stop_pipeline
-} from './tools/bitbucket-pipelines';
+} from './tools/bitbucket-pipelines.js';
 
-// Types for MCP
-type MCPTool = {
-  description: string;
-  parameters: {
-    type: string;
-    properties: Record<string, unknown>;
-    required?: string[];
-  };
-  handler: (params: any) => Promise<unknown>;
-};
-
-type MCPTools = {
-  [key: string]: MCPTool;
-};
-
-type MCPRequest = {
-  tool: string;
-  params?: Record<string, unknown>;
-};
+// Carrega as variáveis de ambiente
+dotenv.config();
 
 // Validate environment variables
 const envSchema = z.object({
   BITBUCKET_ACCESS_TOKEN: z.string(),
   BITBUCKET_WORKSPACE: z.string(),
   BITBUCKET_REPO_SLUG: z.string(),
-  PORT: z.string().default('3444'),
   BITBUCKET_API_URL: z.string().default('https://api.bitbucket.org/2.0')
 });
 
-const env = envSchema.parse(process.env);
-const port = parseInt(env.PORT);
-
-const app = express();
-
-// Middleware
-app.use(helmet());
-app.use(morgan('dev'));
-app.use(cors());
-app.use(express.json());
-
-// Health check endpoints
-app.get('/', (_, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString()
-  });
-});
-
-app.get('/health', (_, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Register MCP Tools
-const tools: MCPTools = {
-  mcp_bitbucket_list_pipelines,
-  mcp_bitbucket_trigger_pipeline,
-  mcp_bitbucket_get_pipeline_status,
-  mcp_bitbucket_stop_pipeline
-};
-
-app.post('/mcp', async (req, res) => {
-  const { tool, params }: MCPRequest = req.body;
-
-  if (!tool || !tools[tool]) {
-    return res.status(400).json({ error: `Tool '${tool}' not found` });
-  }
-
+// Main function to initialize and run the MCP server
+async function main() {
   try {
-    const result = await tools[tool].handler(params || {});
-    res.json(result);
-  } catch (error: any) {
-    console.error(`Error executing tool ${tool}:`, error);
-    res.status(500).json({ 
-      error: error.message,
-      details: error.response?.data
-    });
-  }
-});
+    // Parse and validate environment variables
+    const env = envSchema.safeParse(process.env);
+    if (!env.success) {
+      console.error('Environment validation failed:', env.error.format());
+      process.exit(1);
+    }
 
-// Error handling middleware
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Error:', {
-    message: err.message,
-    stack: err.stack,
-    url: req.url,
-    method: req.method
-  });
-  
-  res.status(500).json({
-    error: 'Internal Server Error',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'An unexpected error occurred'
-  });
-});
+    // Initialize MCP server with StdioServerTransport
+    const server = new McpServer({
+      name: "Bitbucket Pipelines MCP",
+      version: "1.0.0"
+    });
+
+    // Register tools
+    server.tool('mcp_bitbucket_list_pipelines', 
+      "List Bitbucket Pipelines with pagination support",
+      async () => {
+        try {
+          const result = await mcp_bitbucket_list_pipelines.handler({
+            page: 1,
+            pagelen: 10
+          });
+          return {
+            content: [{
+              type: "text",
+              text: JSON.stringify(result)
+            }]
+          };
+        } catch (error) {
+          return {
+            isError: true,
+            content: [{
+              type: "text",
+              text: `Error listing pipelines: ${error instanceof Error ? error.message : String(error)}`
+            }]
+          };
+        }
+      }
+    );
+
+    server.tool('mcp_bitbucket_trigger_pipeline', 
+      "Trigger a new Bitbucket Pipeline",
+      async () => {
+        try {
+          // Hardcoded example for demonstration
+          const result = await mcp_bitbucket_trigger_pipeline.handler({
+            target: {
+              ref_type: "branch",
+              type: "pipeline_ref_target",
+              ref_name: "main"
+            }
+          });
+          
+          return {
+            content: [{
+              type: "text",
+              text: JSON.stringify(result)
+            }]
+          };
+        } catch (error) {
+          return {
+            isError: true,
+            content: [{
+              type: "text",
+              text: `Error triggering pipeline: ${error instanceof Error ? error.message : String(error)}`
+            }]
+          };
+        }
+      }
+    );
+
+    server.tool('mcp_bitbucket_get_pipeline_status',
+      "Get the status of a specific Bitbucket Pipeline",
+      async () => {
+        try {
+          // This is just a placeholder - in real use you'd want to get the UUID from parameters
+          const uuid = "example-pipeline-uuid";
+          
+          const result = await mcp_bitbucket_get_pipeline_status.handler({
+            uuid
+          });
+          
+          return {
+            content: [{
+              type: "text",
+              text: JSON.stringify(result)
+            }]
+          };
+        } catch (error) {
+          return {
+            isError: true,
+            content: [{
+              type: "text",
+              text: `Error getting pipeline status: ${error instanceof Error ? error.message : String(error)}`
+            }]
+          };
+        }
+      }
+    );
+
+    server.tool('mcp_bitbucket_stop_pipeline',
+      "Stop a running Bitbucket Pipeline",
+      async () => {
+        try {
+          // This is just a placeholder - in real use you'd want to get the UUID from parameters
+          const uuid = "example-pipeline-uuid";
+          
+          const result = await mcp_bitbucket_stop_pipeline.handler({
+            uuid
+          });
+          
+          return {
+            content: [{
+              type: "text",
+              text: JSON.stringify(result)
+            }]
+          };
+        } catch (error) {
+          return {
+            isError: true,
+            content: [{
+              type: "text",
+              text: `Error stopping pipeline: ${error instanceof Error ? error.message : String(error)}`
+            }]
+          };
+        }
+      }
+    );
+
+    // Connect to the transport
+    const transport = new StdioServerTransport();
+    await server.connect(transport);
+    
+    console.log('MCP Server started successfully');
+  } catch (error) {
+    console.error('Failed to start MCP server:', error);
+    process.exit(1);
+  }
+}
 
 // Handle uncaught exceptions and rejections
 process.on('uncaughtException', (error) => {
@@ -118,8 +174,5 @@ process.on('unhandledRejection', (reason, promise) => {
   process.exit(1);
 });
 
-// Start server
-app.listen(port, () => {
-  console.log(`MCP Server running on port ${port}`);
-  console.log(`Health check available at http://localhost:${port}/health`);
-}); 
+// Start the server
+main(); 

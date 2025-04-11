@@ -13,12 +13,6 @@ services:
       - BITBUCKET_WORKSPACE=${BITBUCKET_WORKSPACE}
       - BITBUCKET_REPO_SLUG=${BITBUCKET_REPO_SLUG}
       - BITBUCKET_API_URL=${BITBUCKET_API_URL:-https://api.bitbucket.org/2.0}
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3444/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
     logging:
       driver: "json-file"
       options:

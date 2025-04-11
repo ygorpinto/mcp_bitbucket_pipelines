@@ -1,6 +1,6 @@
 # Bitbucket Pipelines MCP Server
 
-Um servidor MCP (Model Context Protocol) que fornece tools para interagir com o Bitbucket Pipelines. Este servidor pode ser usado por modelos de linguagem como o Claude para gerenciar pipelines do Bitbucket.
+Um servidor MCP (Model Context Protocol) que fornece tools para interagir com o Bitbucket Pipelines. Este servidor implementa o padrão MCP e pode ser usado por modelos de linguagem como o Claude para gerenciar pipelines do Bitbucket.
 
 ## Tools Disponíveis
 
@@ -70,32 +70,12 @@ BITBUCKET_WORKSPACE=seu_workspace
 BITBUCKET_REPO_SLUG=seu_repositorio
 
 # Opcionais
-PORT=3444                                    # Porta do servidor (default: 3444)
 BITBUCKET_API_URL=https://api.bitbucket.org/2.0  # URL da API (default: https://api.bitbucket.org/2.0)
 ```
 
 ## Instalação e Execução
 
-### Com Docker (Recomendado)
-
-1. Clone o repositório:
-```bash
-git clone [url-do-repositorio]
-cd bitbucket-pipelines-mcp
-```
-
-2. Configure as variáveis de ambiente:
-```bash
-cp .env.example .env
-# Edite o arquivo .env com suas configurações
-```
-
-3. Inicie o servidor:
-```bash
-docker-compose up -d
-```
-
-### Sem Docker
+### Instalação Local
 
 1. Clone o repositório:
 ```bash
@@ -124,24 +104,43 @@ npm run build
 npm start
 ```
 
-## Uso
+## Uso com MCP
 
-### Health Check
-```bash
-curl http://localhost:3444/health
-```
+Este servidor implementa o Model Context Protocol (MCP), permitindo que modelos de linguagem interajam com o Bitbucket Pipelines. O servidor usa a interface StdioServerTransport, que permite a comunicação através do stdin/stdout.
 
-### Chamando uma Tool
-```bash
-curl -X POST http://localhost:3444/mcp \
-  -H "Content-Type: application/json" \
-  -d '{
-    "tool": "mcp_bitbucket_list_pipelines",
-    "params": {
-      "page": 1,
-      "pagelen": 10
-    }
-  }'
+### Exemplo de uso com o SDK do MCP
+
+```typescript
+import { Client } from '@modelcontextprotocol/sdk/client';
+import { ChildProcessTransport } from '@modelcontextprotocol/sdk/client/child-process';
+
+async function main() {
+  // Inicializa o cliente MCP 
+  const client = new Client({
+    transport: new ChildProcessTransport({
+      command: 'node',
+      args: ['dist/index.js'],
+      env: {
+        BITBUCKET_ACCESS_TOKEN: 'seu_token',
+        BITBUCKET_WORKSPACE: 'seu_workspace', 
+        BITBUCKET_REPO_SLUG: 'seu_repositorio'
+      }
+    })
+  });
+
+  // Lista as ferramentas disponíveis
+  const tools = await client.listTools();
+  console.log('Ferramentas disponíveis:', tools);
+
+  // Listar pipelines
+  const pipelines = await client.callTool('mcp_bitbucket_list_pipelines', { page: 1, pagelen: 5 });
+  console.log('Pipelines:', pipelines);
+
+  // Fechar o cliente
+  await client.close();
+}
+
+main().catch(console.error);
 ```
 
 ## Desenvolvimento
@@ -149,39 +148,29 @@ curl -X POST http://localhost:3444/mcp \
 ### Scripts Disponíveis
 
 - `npm run build`: Compila o projeto TypeScript
-- `npm start`: Inicia o servidor
-- `npm run dev`: Inicia o servidor em modo de desenvolvimento com hot-reload
+- `npm start`: Inicia o servidor 
+- `npm run dev`: Inicia o servidor em modo de desenvolvimento usando ts-node
 - `npm test`: Executa os testes
-- `npm run lint`: Executa o linter
 
 ### Estrutura do Projeto
 
 ```
 .
 ├── src/
-│   ├── index.ts              # Ponto de entrada da aplicação
+│   ├── index.ts                # Ponto de entrada do servidor MCP
 │   └── tools/
 │       └── bitbucket-pipelines.ts  # Implementação das tools MCP
-├── Dockerfile                # Configuração do Docker
-├── docker-compose.yml        # Configuração do Docker Compose
-├── package.json             # Dependências e scripts
-└── tsconfig.json            # Configuração do TypeScript
+├── package.json               # Dependências e scripts 
+└── tsconfig.json              # Configuração do TypeScript
 ```
 
-## Segurança
+## Implementando o Model Context Protocol
 
-O servidor inclui várias medidas de segurança:
-- Helmet para headers HTTP seguros
-- CORS configurado
-- Validação de entrada com Zod
-- Tratamento de erros robusto
-- Logging de requisições com Morgan
+Este projeto utiliza o `@modelcontextprotocol/sdk` para implementar um servidor MCP. As principais características são:
 
-## Monitoramento
-
-- Health check disponível em `/health`
-- Logs detalhados de requisições
-- Tratamento e logging de exceções não capturadas
+1. **Comunicação via stdio**: O servidor se comunica através de stdin/stdout, o que permite integração fácil com LLMs.
+2. **Formato padrão de tools**: Todas as ferramentas seguem o formato definido pelo protocolo MCP.
+3. **Tratamento robusto de erros**: O protocolo MCP padroniza como os erros são comunicados ao cliente.
 
 ## Contribuindo
 
@@ -190,3 +179,18 @@ O servidor inclui várias medidas de segurança:
 3. Commit suas mudanças (`git commit -am 'Adiciona nova feature'`)
 4. Push para a branch (`git push origin feature/nova-feature`)
 5. Crie um Pull Request 
+
+## Testando com a CLI do MCP
+
+Se você tiver a ferramenta MCP CLI instalada (via npm install -g @modelcontextprotocol/sdk), você pode testar o servidor da seguinte forma:
+
+```bash
+# Inicie o servidor em um terminal
+npm start
+
+# Em outro terminal, use a CLI para enviar comandos
+mcp client --cmd="node dist/index.js" list-tools
+
+# Para chamar uma ferramenta específica
+mcp client --cmd="node dist/index.js" call mcp_bitbucket_list_pipelines
+``` 

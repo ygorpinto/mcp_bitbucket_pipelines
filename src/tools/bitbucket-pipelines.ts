@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import axios from 'axios';
+import type { ToolDefinition } from '../types/tool.js';
 
 // Interfaces for Pipeline types
 interface PipelineVariable {
@@ -44,7 +45,7 @@ const PipelineTargetSchema = z.object({
 });
 
 // Tool: List Pipelines
-export const mcp_bitbucket_list_pipelines = {
+export const mcp_bitbucket_list_pipelines: ToolDefinition = {
   description: "List Bitbucket Pipelines with pagination support",
   parameters: {
     type: "object",
@@ -69,19 +70,26 @@ export const mcp_bitbucket_list_pipelines = {
       }
     });
 
-    const response = await client.get(
-      `/repositories/${process.env.BITBUCKET_WORKSPACE}/${process.env.BITBUCKET_REPO_SLUG}/pipelines/`,
-      {
-        params: { page, pagelen }
-      }
-    );
+    try {
+      const response = await client.get(
+        `/repositories/${process.env.BITBUCKET_WORKSPACE}/${process.env.BITBUCKET_REPO_SLUG}/pipelines/`,
+        {
+          params: { page, pagelen }
+        }
+      );
 
-    return response.data;
+      return response.data;
+    } catch (error: any) {
+      if (error.response) {
+        throw new Error(`Failed to list pipelines: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
+      }
+      throw new Error(`Failed to list pipelines: ${error.message}`);
+    }
   }
 };
 
 // Tool: Trigger Pipeline
-export const mcp_bitbucket_trigger_pipeline = {
+export const mcp_bitbucket_trigger_pipeline: ToolDefinition = {
   description: "Trigger a new Bitbucket Pipeline",
   parameters: {
     type: "object",
@@ -89,6 +97,18 @@ export const mcp_bitbucket_trigger_pipeline = {
       target: {
         type: "object",
         description: "Pipeline target configuration",
+        properties: {
+          ref_type: { type: "string" },
+          type: { type: "string" },
+          ref_name: { type: "string" },
+          selector: { 
+            type: "object",
+            properties: {
+              type: { type: "string" },
+              pattern: { type: "string" }
+            }
+          }
+        },
         required: ["ref_type", "type", "ref_name"]
       },
       variables: {
@@ -100,7 +120,8 @@ export const mcp_bitbucket_trigger_pipeline = {
             key: { type: "string" },
             value: { type: "string" },
             secured: { type: "boolean" }
-          }
+          },
+          required: ["key", "value"]
         }
       }
     },
@@ -119,20 +140,27 @@ export const mcp_bitbucket_trigger_pipeline = {
       }
     });
 
-    const response = await client.post(
-      `/repositories/${process.env.BITBUCKET_WORKSPACE}/${process.env.BITBUCKET_REPO_SLUG}/pipelines/`,
-      {
-        target: validatedTarget,
-        ...(validatedVariables && { variables: validatedVariables })
-      }
-    );
+    try {
+      const response = await client.post(
+        `/repositories/${process.env.BITBUCKET_WORKSPACE}/${process.env.BITBUCKET_REPO_SLUG}/pipelines/`,
+        {
+          target: validatedTarget,
+          ...(validatedVariables && { variables: validatedVariables })
+        }
+      );
 
-    return response.data;
+      return response.data;
+    } catch (error: any) {
+      if (error.response) {
+        throw new Error(`Failed to trigger pipeline: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
+      }
+      throw new Error(`Failed to trigger pipeline: ${error.message}`);
+    }
   }
 };
 
 // Tool: Get Pipeline Status
-export const mcp_bitbucket_get_pipeline_status = {
+export const mcp_bitbucket_get_pipeline_status: ToolDefinition = {
   description: "Get the status of a specific Bitbucket Pipeline",
   parameters: {
     type: "object",
@@ -152,16 +180,23 @@ export const mcp_bitbucket_get_pipeline_status = {
       }
     });
 
-    const response = await client.get(
-      `/repositories/${process.env.BITBUCKET_WORKSPACE}/${process.env.BITBUCKET_REPO_SLUG}/pipelines/${uuid}`
-    );
+    try {
+      const response = await client.get(
+        `/repositories/${process.env.BITBUCKET_WORKSPACE}/${process.env.BITBUCKET_REPO_SLUG}/pipelines/${uuid}`
+      );
 
-    return response.data;
+      return response.data;
+    } catch (error: any) {
+      if (error.response) {
+        throw new Error(`Failed to get pipeline status: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
+      }
+      throw new Error(`Failed to get pipeline status: ${error.message}`);
+    }
   }
 };
 
 // Tool: Stop Pipeline
-export const mcp_bitbucket_stop_pipeline = {
+export const mcp_bitbucket_stop_pipeline: ToolDefinition = {
   description: "Stop a running Bitbucket Pipeline",
   parameters: {
     type: "object",
@@ -181,10 +216,17 @@ export const mcp_bitbucket_stop_pipeline = {
       }
     });
 
-    const response = await client.post(
-      `/repositories/${process.env.BITBUCKET_WORKSPACE}/${process.env.BITBUCKET_REPO_SLUG}/pipelines/${uuid}/stopPipeline`
-    );
+    try {
+      const response = await client.post(
+        `/repositories/${process.env.BITBUCKET_WORKSPACE}/${process.env.BITBUCKET_REPO_SLUG}/pipelines/${uuid}/stopPipeline`
+      );
 
-    return response.data;
+      return response.data;
+    } catch (error: any) {
+      if (error.response) {
+        throw new Error(`Failed to stop pipeline: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
+      }
+      throw new Error(`Failed to stop pipeline: ${error.message}`);
+    }
   }
 }; 
