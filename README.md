@@ -75,6 +75,47 @@ BITBUCKET_API_URL=https://api.bitbucket.org/2.0  # URL da API (default: https://
 
 ## Instalação e Execução
 
+### Com Docker (Recomendado)
+
+1. Clone o repositório:
+```bash
+git clone [url-do-repositorio]
+cd bitbucket-pipelines-mcp
+```
+
+2. Configure as variáveis de ambiente:
+```bash
+cp .env.example .env
+# Edite o arquivo .env com suas configurações
+```
+
+3. Inicie o servidor:
+```bash
+docker-compose up -d
+```
+
+4. Para verificar o status do servidor:
+```bash
+# Torne o script executável
+chmod +x docker-mcp-test.js
+# Execute o script
+node docker-mcp-test.js
+```
+
+5. Para interagir com o servidor usando o script cliente:
+```bash
+# Torne o script executável
+chmod +x docker-mcp-client.js
+# Execute o script
+node docker-mcp-client.js
+```
+
+6. Para interagir manualmente com o servidor:
+```bash
+# Exemplo de chamada direta
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"name":"Test Client","version":"1.0.0"}}' | docker exec -i bitbucket-pipelines-mcp_mcp-server_1 node dist/index.js
+```
+
 ### Instalação Local
 
 1. Clone o repositório:

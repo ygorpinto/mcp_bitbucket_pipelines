@@ -5,8 +5,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "3444:3444"
+    volumes:
+      - ./.env:/usr/src/app/.env
     environment:
       - NODE_ENV=production
       - BITBUCKET_ACCESS_TOKEN=${BITBUCKET_ACCESS_TOKEN}
@@ -17,4 +17,7 @@ services:
       driver: "json-file"
       options:
         max-size: "10m"
-        max-file: "3" 
+        max-file: "3"
+    tty: true
+    stdin_open: true
+    restart: unless-stopped 

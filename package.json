@@ -8,8 +8,12 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "ts-node --esm src/index.ts",
-    "client": "ts-node --esm src/client-example.ts",
-    "test": "jest"
+    "test": "jest",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:test": "node docker-mcp-test.js",
+    "docker:client": "node docker-mcp-client.js"
   },
   "dependencies": {
     "zod": "^3.22.4",

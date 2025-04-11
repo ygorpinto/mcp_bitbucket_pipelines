@@ -16,11 +16,11 @@ COPY . .
 # Build TypeScript code
 RUN npm run build
 
-# Expose port
-EXPOSE 3444
-
 # Set environment variables
 ENV NODE_ENV=production
 
-# Start the server
-CMD [ "npm", "start" ] 
+# Remover a exposição da porta, já que o MCP usa stdin/stdout
+# EXPOSE 3444
+
+# Comando para iniciar o servidor MCP
+CMD ["node", "dist/index.js"] 
