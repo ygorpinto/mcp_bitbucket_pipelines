@@ -113,7 +113,7 @@ node docker-mcp-client.js
 6. Para interagir manualmente com o servidor:
 ```bash
 # Exemplo de chamada direta
-echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"name":"Test Client","version":"1.0.0"}}' | docker exec -i bitbucket-pipelines-mcp_mcp-server_1 node dist/index.js
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"name":"Test Client","version":"1.0.0","protocolVersion":"0.3.0","capabilities":{},"clientInfo":{"name":"Test Client","version":"1.0.0"}}}' | docker exec -i bitbucket-pipelines-mcp_mcp-server_1 node dist/index.js
 ```
 
 ### Instalação Local
@@ -143,6 +143,111 @@ npm run build
 5. Inicie o servidor:
 ```bash
 npm start
+```
+
+## Integração com o Cursor
+
+### Método 1: Editando o arquivo `mcp.json` diretamente (Recomendado)
+
+A maneira mais direta e eficiente de integrar com o Cursor é editar o arquivo `mcp.json` principal:
+
+1. Certifique-se de que o servidor Docker MCP está rodando:
+```bash
+npm run docker:up
+```
+
+2. Localize o arquivo `mcp.json` no diretório de configuração do Cursor:
+   - Linux: `~/.cursor/mcp.json`
+   - macOS: `~/Library/Application Support/Cursor/mcp.json`
+   - Windows: `%APPDATA%\Cursor\mcp.json`
+
+3. Edite o arquivo `mcp.json` e adicione a seguinte configuração na seção principal:
+
+```json
+"bitbucket-pipelines": {
+  "command": "docker",
+  "args": [
+    "exec",
+    "-i",
+    "bitbucket-pipelines-mcp_mcp-server_1",
+    "node",
+    "dist/index.js"
+  ]
+}
+```
+
+4. Salve o arquivo e reinicie o Cursor.
+
+5. Agora você pode usar as ferramentas do Bitbucket Pipelines diretamente no Cursor, chamando-as usando:
+```
+@bitbucket-pipelines
+```
+
+### Método 2: Usando um arquivo de configuração separado
+
+Para usar o Bitbucket Pipelines MCP diretamente no Cursor IDE, siga estas etapas:
+
+1. Certifique-se de que o servidor Docker MCP está rodando:
+```bash
+npm run docker:up
+```
+
+2. Crie um arquivo `mcp.config.json` na raiz do projeto com o seguinte conteúdo:
+```json
+{
+  "name": "bitbucket-pipelines-mcp",
+  "description": "Bitbucket Pipelines MCP Server para interagir com o Bitbucket Pipelines",
+  "version": "1.0.0",
+  "command": {
+    "binary": "docker",
+    "args": ["exec", "-i", "bitbucket-pipelines-mcp_mcp-server_1", "node", "dist/index.js"]
+  },
+  "tools": [
+    {
+      "name": "mcp_bitbucket_list_pipelines",
+      "description": "Lista pipelines com suporte a paginação"
+    },
+    {
+      "name": "mcp_bitbucket_trigger_pipeline",
+      "description": "Dispara um novo pipeline"
+    },
+    {
+      "name": "mcp_bitbucket_get_pipeline_status",
+      "description": "Obtém o status de um pipeline específico"
+    },
+    {
+      "name": "mcp_bitbucket_stop_pipeline",
+      "description": "Para a execução de um pipeline"
+    }
+  ]
+}
+```
+
+3. Copie este arquivo para o diretório de configuração do Cursor:
+```bash
+# Para Linux
+mkdir -p ~/.config/Cursor/mcp/
+cp mcp.config.json ~/.config/Cursor/mcp/bitbucket-pipelines-mcp.json
+
+# Para macOS
+mkdir -p ~/Library/Application\ Support/Cursor/mcp/
+cp mcp.config.json ~/Library/Application\ Support/Cursor/mcp/bitbucket-pipelines-mcp.json
+
+# Para Windows
+mkdir -p %AppData%\Cursor\mcp\
+copy mcp.config.json %AppData%\Cursor\mcp\bitbucket-pipelines-mcp.json
+```
+
+4. Reinicie o Cursor para aplicar as alterações.
+
+5. Agora você pode usar as ferramentas do Bitbucket Pipelines diretamente no Cursor, chamando-as com:
+```
+@modelcontextprotocol/bitbucket-pipelines-mcp
+```
+
+6. Para acessar uma ferramenta específica, use:
+```
+@modelcontextprotocol/bitbucket-pipelines-mcp/mcp_bitbucket_list_pipelines
 ```
 
 ## Uso com MCP
@@ -221,17 +326,22 @@ Este projeto utiliza o `@modelcontextprotocol/sdk` para implementar um servidor 
 4. Push para a branch (`git push origin feature/nova-feature`)
 5. Crie um Pull Request 
 
-## Testando com a CLI do MCP
+## Testando com Comandos Diretos
 
-Se você tiver a ferramenta MCP CLI instalada (via npm install -g @modelcontextprotocol/sdk), você pode testar o servidor da seguinte forma:
+Você pode testar o servidor manualmente usando os seguintes comandos:
 
+### Inicialização
 ```bash
-# Inicie o servidor em um terminal
-npm start
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"name":"Test Client","version":"1.0.0","protocolVersion":"0.3.0","capabilities":{},"clientInfo":{"name":"Test Client","version":"1.0.0"}}}' | docker exec -i bitbucket-pipelines-mcp_mcp-server_1 node dist/index.js
+```
 
-# Em outro terminal, use a CLI para enviar comandos
-mcp client --cmd="node dist/index.js" list-tools
+### Listar Ferramentas
+```bash
+echo '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' | docker exec -i bitbucket-pipelines-mcp_mcp-server_1 node dist/index.js
+```
 
-# Para chamar uma ferramenta específica
-mcp client --cmd="node dist/index.js" call mcp_bitbucket_list_pipelines
+### Chamar uma Ferramenta
+```bash
+echo '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"mcp_bitbucket_list_pipelines","input":{"page":1,"pagelen":5}}}' | docker exec -i bitbucket-pipelines-mcp_mcp-server_1 node dist/index.js
 ``` 
+
