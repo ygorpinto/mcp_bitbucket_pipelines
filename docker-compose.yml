@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  bitbucket-pipelines-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bitbucket-pipelines-mcp
+    ports:
+      - "3444:3444"
+    environment:
+      - NODE_ENV=production
+      - PORT=3444
+      - BITBUCKET_ACCESS_TOKEN=${BITBUCKET_ACCESS_TOKEN}
+      # Opcional: descomente para usar uma URL diferente da API do Bitbucket
+      # - BITBUCKET_API_URL=https://api.bitbucket.org/2.0
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3444/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3" 
