@@ -1,26 +1,101 @@
 # Bitbucket Pipelines MCP Server
 
-Um servidor Express que fornece uma API RESTful para gerenciar pipelines do Bitbucket. Este servidor permite listar, executar e parar pipelines de forma simples e segura.
+Um servidor MCP (Model Context Protocol) que fornece tools para interagir com o Bitbucket Pipelines. Este servidor pode ser usado por modelos de linguagem como o Claude para gerenciar pipelines do Bitbucket.
 
-## 🚀 Funcionalidades
+## Tools Disponíveis
 
-- Listar pipelines de um repositório
-- Executar pipeline em branch ou commit específico
-- Verificar status de uma pipeline
-- Parar uma pipeline em execução
-- Suporte a variáveis de pipeline
-- Validação robusta de entrada
-- Tratamento de erros adequado
-- Segurança com CORS e Helmet
+### 1. `mcp_bitbucket_list_pipelines`
+Lista pipelines com suporte a paginação.
 
-## 📋 Pré-requisitos
+**Parâmetros:**
+```typescript
+{
+  page?: number;    // Número da página (default: 1)
+  pagelen?: number; // Itens por página (default: 10)
+}
+```
 
-- Node.js >= 14
-- npm ou yarn
-- Token de acesso do Bitbucket com permissões apropriadas
-- Docker (opcional, para deploy)
+### 2. `mcp_bitbucket_trigger_pipeline`
+Dispara um novo pipeline.
 
-## 🔧 Instalação Local
+**Parâmetros:**
+```typescript
+{
+  target: {
+    ref_type: string;   // Tipo de referência (ex: "branch", "tag")
+    type: string;       // Tipo do alvo
+    ref_name: string;   // Nome da referência (ex: "main", "develop")
+    selector?: {        // Opcional
+      type: string;
+      pattern: string;
+    }
+  },
+  variables?: Array<{   // Opcional
+    key: string;
+    value: string;
+    secured?: boolean;
+  }>
+}
+```
+
+### 3. `mcp_bitbucket_get_pipeline_status`
+Obtém o status de um pipeline específico.
+
+**Parâmetros:**
+```typescript
+{
+  uuid: string;  // UUID do pipeline
+}
+```
+
+### 4. `mcp_bitbucket_stop_pipeline`
+Para a execução de um pipeline.
+
+**Parâmetros:**
+```typescript
+{
+  uuid: string;  // UUID do pipeline
+}
+```
+
+## Configuração
+
+### Variáveis de Ambiente
+Crie um arquivo `.env` com as seguintes variáveis:
+
+```env
+# Obrigatórias
+BITBUCKET_ACCESS_TOKEN=seu_token_aqui
+BITBUCKET_WORKSPACE=seu_workspace
+BITBUCKET_REPO_SLUG=seu_repositorio
+
+# Opcionais
+PORT=3444                                    # Porta do servidor (default: 3444)
+BITBUCKET_API_URL=https://api.bitbucket.org/2.0  # URL da API (default: https://api.bitbucket.org/2.0)
+```
+
+## Instalação e Execução
+
+### Com Docker (Recomendado)
+
+1. Clone o repositório:
+```bash
+git clone [url-do-repositorio]
+cd bitbucket-pipelines-mcp
+```
+
+2. Configure as variáveis de ambiente:
+```bash
+cp .env.example .env
+# Edite o arquivo .env com suas configurações
+```
+
+3. Inicie o servidor:
+```bash
+docker-compose up -d
+```
+
+### Sem Docker
 
 1. Clone o repositório:
 ```bash
@@ -35,162 +110,83 @@ npm install
 
 3. Configure as variáveis de ambiente:
 ```bash
-export BITBUCKET_ACCESS_TOKEN="seu-token-aqui"
-# Opcional: export BITBUCKET_API_URL="https://api.bitbucket.org/2.0"
+cp .env.example .env
+# Edite o arquivo .env com suas configurações
 ```
 
-4. Inicie o servidor:
+4. Compile o projeto:
+```bash
+npm run build
+```
+
+5. Inicie o servidor:
 ```bash
 npm start
 ```
 
-## 🐳 Deploy com Docker
+## Uso
 
-1. Construa a imagem:
+### Health Check
 ```bash
-docker build -t bitbucket-pipelines-mcp .
+curl http://localhost:3444/health
 ```
 
-2. Execute o container:
+### Chamando uma Tool
 ```bash
-docker run -d \
-  -p 3444:3444 \
-  -e BITBUCKET_ACCESS_TOKEN="seu-token-aqui" \
-  --name bitbucket-pipelines-mcp \
-  bitbucket-pipelines-mcp
-```
-
-## 🔌 Uso com Cursor
-
-Para usar este servidor como um MCP client no Cursor, adicione a seguinte configuração ao seu arquivo `~/.cursor/mcp.json`:
-
-```json
-{
-  "bitbucket-pipelines": {
-    "type": "http",
-    "url": "http://localhost:3444",
-    "headers": {
-      "Authorization": "Bearer seu-token-aqui"
-    }
-  }
-}
-```
-
-## 🔑 Configuração
-
-O servidor requer apenas uma configuração obrigatória:
-
-- `BITBUCKET_ACCESS_TOKEN`: Token de acesso do Bitbucket
-
-Configuração opcional:
-- `BITBUCKET_API_URL`: URL base da API do Bitbucket (padrão: https://api.bitbucket.org/2.0)
-- `PORT`: Porta do servidor (padrão: 3444)
-
-## 📚 API
-
-### Listar Pipelines
-
-```http
-GET /api/pipelines?workspace={workspace}&repo_slug={repo_slug}
-```
-
-Parâmetros de query:
-- `workspace`: Nome do workspace (obrigatório)
-- `repo_slug`: Nome do repositório (obrigatório)
-- `sort`: Ordenação (opcional)
-- `page`: Número da página (opcional)
-- `pagelen`: Itens por página (opcional, 1-100)
-
-### Executar Pipeline
-
-```http
-POST /api/pipelines?workspace={workspace}&repo_slug={repo_slug}
-```
-
-Parâmetros de query:
-- `workspace`: Nome do workspace (obrigatório)
-- `repo_slug`: Nome do repositório (obrigatório)
-
-Body:
-```json
-{
-  "branch": "main",           // ou "commit": "hash-do-commit"
-  "variables": {              // opcional
-    "DEPLOY_ENV": "staging",
-    "DEBUG": "true"
-  }
-}
-```
-
-### Verificar Status da Pipeline
-
-```http
-GET /api/pipelines/{pipelineUuid}?workspace={workspace}&repo_slug={repo_slug}
-```
-
-Parâmetros:
-- `pipelineUuid`: UUID da pipeline (obrigatório)
-- `workspace`: Nome do workspace (obrigatório)
-- `repo_slug`: Nome do repositório (obrigatório)
-
-### Parar Pipeline
-
-```http
-POST /api/pipelines/{pipelineUuid}/stop?workspace={workspace}&repo_slug={repo_slug}
-```
-
-Parâmetros:
-- `pipelineUuid`: UUID da pipeline (obrigatório)
-- `workspace`: Nome do workspace (obrigatório)
-- `repo_slug`: Nome do repositório (obrigatório)
-
-## 📝 Exemplos
-
-### Listar Pipelines
-```bash
-curl "http://localhost:3444/api/pipelines?workspace=my-workspace&repo_slug=my-repo"
-```
-
-### Executar Pipeline
-```bash
-curl -X POST "http://localhost:3444/api/pipelines?workspace=my-workspace&repo_slug=my-repo" \
+curl -X POST http://localhost:3444/mcp \
   -H "Content-Type: application/json" \
   -d '{
-    "branch": "main",
-    "variables": {
-      "DEPLOY_ENV": "staging"
+    "tool": "mcp_bitbucket_list_pipelines",
+    "params": {
+      "page": 1,
+      "pagelen": 10
     }
   }'
 ```
 
-### Verificar Status
-```bash
-curl "http://localhost:3444/api/pipelines/123e4567-e89b-12d3-a456-426614174000?workspace=my-workspace&repo_slug=my-repo"
+## Desenvolvimento
+
+### Scripts Disponíveis
+
+- `npm run build`: Compila o projeto TypeScript
+- `npm start`: Inicia o servidor
+- `npm run dev`: Inicia o servidor em modo de desenvolvimento com hot-reload
+- `npm test`: Executa os testes
+- `npm run lint`: Executa o linter
+
+### Estrutura do Projeto
+
+```
+.
+├── src/
+│   ├── index.ts              # Ponto de entrada da aplicação
+│   └── tools/
+│       └── bitbucket-pipelines.ts  # Implementação das tools MCP
+├── Dockerfile                # Configuração do Docker
+├── docker-compose.yml        # Configuração do Docker Compose
+├── package.json             # Dependências e scripts
+└── tsconfig.json            # Configuração do TypeScript
 ```
 
-### Parar Pipeline
-```bash
-curl -X POST "http://localhost:3444/api/pipelines/123e4567-e89b-12d3-a456-426614174000/stop?workspace=my-workspace&repo_slug=my-repo"
-```
-
-## 🛡️ Segurança
+## Segurança
 
 O servidor inclui várias medidas de segurança:
-
-- Validação de entrada com Zod
-- Headers de segurança via Helmet
+- Helmet para headers HTTP seguros
 - CORS configurado
-- Sanitização de parâmetros
-- Tratamento adequado de erros
+- Validação de entrada com Zod
+- Tratamento de erros robusto
+- Logging de requisições com Morgan
 
-## 🤝 Contribuindo
+## Monitoramento
 
-1. Faça o fork do projeto
-2. Crie sua feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
-5. Abra um Pull Request
+- Health check disponível em `/health`
+- Logs detalhados de requisições
+- Tratamento e logging de exceções não capturadas
 
-## 📄 Licença
+## Contribuindo
 
-Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes. 
+1. Faça um fork do projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/nova-feature`)
+3. Commit suas mudanças (`git commit -am 'Adiciona nova feature'`)
+4. Push para a branch (`git push origin feature/nova-feature`)
+5. Crie um Pull Request 
